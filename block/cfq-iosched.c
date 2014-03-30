@@ -1,6 +1,8 @@
 /*
  *  CFQ, or complete fairness queueing, disk scheduler.
- *
+ *   
+ *   TeamMEX optimizations
+ *   
  *  Based on ideas from a previously unfinished io
  *  scheduler (round robin per-process disk scheduling) and Andrea Arcangeli.
  *
@@ -18,13 +20,13 @@
  */
 /* max queue in one round of service */
 static const int cfq_quantum = 4;
-static const int cfq_fifo_expire[2] = { HZ / 4, HZ / 8 };
+static const int cfq_fifo_expire[2] = { 42, 11 };
 /* maximum backwards seek, in KiB */
-static const int cfq_back_max = 16 * 1024;
+static const int cfq_back_max = 12582912;
 /* penalty of a backwards seek */
-static const int cfq_back_penalty = 2;
-static const int cfq_slice_sync = HZ / 10;
-static int cfq_slice_async = HZ / 25;
+static const int cfq_back_penalty = 1;
+static const int cfq_slice_sync = 6;
+static int cfq_slice_async = 5;
 static const int cfq_slice_async_rq = 2;
 static int cfq_slice_idle = HZ / 125;
 
@@ -2890,6 +2892,6 @@ static void __exit cfq_exit(void)
 module_init(cfq_init);
 module_exit(cfq_exit);
 
-MODULE_AUTHOR("Jens Axboe");
+MODULE_AUTHOR("Jens Axboe-OPTimized klozz");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Completely Fair Queueing IO scheduler");
