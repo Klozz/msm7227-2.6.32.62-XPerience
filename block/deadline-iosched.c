@@ -1,6 +1,8 @@
 /*
  *  Deadline i/o scheduler.
  *
+ * Optimized by teamMEX
+ *  Copyright (C) 2013 The XPerience Project By TeamMex
  *  Copyright (C) 2002 Jens Axboe <axboe@kernel.dk>
  */
 #include <linux/kernel.h>
@@ -17,12 +19,13 @@
 /*
  * See Documentation/block/deadline-iosched.txt
  */
-static const int read_expire = HZ / 4;  /* max time before a read is submitted. */
-static const int write_expire = 5 * HZ; /* ditto for writes, these limits are SOFT! */
-static const int writes_starved = 4;    /* max times reads can starve a write */
+static const int read_expire = 25;  /* max time before a read is submitted. */
+static const int write_expire = 250; /* ditto for writes, these limits are SOFT! */
+static const int writes_starved = 1;    /* max times reads can starve a write */
 static const int fifo_batch = 1;       /* # of sequential requests treated as one
 				     by the above parameters. For throughput. */
 
+static const int front_merges =1;
 struct deadline_data {
 	/*
 	 * run time data
@@ -232,7 +235,7 @@ static inline int deadline_check_fifo(struct deadline_data *dd, int ddir)
 	/*
 	 * rq is expired!
 	 */
-	if (time_after(jiffies, rq_fifo_time(rq)))
+	if (time_after_eq(jiffies, rq_fifo_time(rq)))
 		return 1;
 
 	return 0;
@@ -362,7 +365,7 @@ static void *deadline_init_queue(struct request_queue *q)
 	dd->fifo_expire[READ] = read_expire;
 	dd->fifo_expire[WRITE] = write_expire;
 	dd->writes_starved = writes_starved;
-	dd->front_merges = 0;
+	dd->front_merges = front_merges;
 	dd->fifo_batch = fifo_batch;
 	return dd;
 }
@@ -472,6 +475,6 @@ static void __exit deadline_exit(void)
 module_init(deadline_init);
 module_exit(deadline_exit);
 
-MODULE_AUTHOR("Jens Axboe");
+MODULE_AUTHOR("Jens Axboe-Klozz Optimized");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("deadline IO scheduler");
