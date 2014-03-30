@@ -1593,6 +1593,11 @@ int __cpufreq_driver_target(struct cpufreq_policy *policy,
 
 	dprintk("target for CPU %u: %u kHz, relation %u\n", policy->cpu,
 		target_freq, relation);
+
+//cpufreq: break earlier if the target_freq is equal to the current freq. klzz
+if (target_freq == policy->cur)
+return 0;
+
 	if (cpu_online(policy->cpu) && cpufreq_driver->target)
 		retval = cpufreq_driver->target(policy, target_freq, relation);
 
