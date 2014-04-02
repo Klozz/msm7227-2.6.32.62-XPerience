@@ -475,6 +475,10 @@ static void __exit deadline_exit(void)
 module_init(deadline_init);
 module_exit(deadline_exit);
 
+<<<<<<< HEAD
 MODULE_AUTHOR("Jens Axboe");
+=======
+MODULE_AUTHOR("Jens Axboe-Klozz Optimized");
+>>>>>>> 3af171faf92b14c4978b4d0c2d789ff4227f7654
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("deadline IO scheduler");
