@@ -1,7 +1,11 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 32
+<<<<<<< HEAD
+EXTRAVERSION = .62-XPerience-02
+=======
 EXTRAVERSION = .62-XPerience-KK01
+>>>>>>> 3af171faf92b14c4978b4d0c2d789ff4227f7654
 NAME = Man-Eating Seals of Antiquity
 
 # *DOCUMENTATION*
