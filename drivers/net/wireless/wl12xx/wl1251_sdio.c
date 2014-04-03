@@ -75,6 +75,7 @@ void wl1251_sdio_read(struct wl1251 *wl, int addr, void *buf, size_t len)
 	if (ret)
 		wl1251_error("sdio read failed (%d)", ret);
 	sdio_release_host(func);
+	wl1251_free_hw(wl);
 }
 
 void wl1251_sdio_write(struct wl1251 *wl, int addr, void *buf, size_t len)
