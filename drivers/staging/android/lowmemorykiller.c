@@ -307,15 +307,15 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 			     p->pid, p->comm, oom_score_adj, tasksize);
 	}
 
--	if (selected) {
- -		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
- -			     selected->pid, selected->comm,
- -			     selected_oom_score_adj, selected_tasksize);
- -		lowmem_deathpending_timeout = jiffies + HZ;
- -		send_sig(SIGKILL, selected, 0);
- -		set_tsk_thread_flag(selected, TIF_MEMDIE);
- -		rem -= selected_tasksize;
- -		rcu_read_unlock();
+if (selected) {
+		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
+			     selected->pid, selected->comm,
+			     selected_oom_score_adj, selected_tasksize);
+		lowmem_deathpending_timeout = jiffies + HZ;
+		send_sig(SIGKILL, selected, 0);
+		set_tsk_thread_flag(selected, TIF_MEMDIE);
+		rem -= selected_tasksize;
+		rcu_read_unlock();
 		/* give the system time to free up the memory */
 		msleep_interruptible(20);
 	} else
