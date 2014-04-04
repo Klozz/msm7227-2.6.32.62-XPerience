@@ -157,6 +157,7 @@ config MACH_MSM7X27_ROBYN
 	depends on !MSM_STACKED_MEMORY
 	default n
 	bool "MSM7x27 Robyn"
+	select ARCH_CMA_POSSIBLE
 	help
 	  Support for the Robyn SEMC product using MSM7x27.
 
@@ -167,6 +168,7 @@ config MACH_MSM7X27_MIMMI
 	select SEMC_GPIO_MATRIX_DRIVER
 	select SEMC_GPIO_INPUT_DRIVER
 	bool "MSM7x27 Mimmi"
+	select ARCH_CMA_POSSIBLE
 	help
 	  Support for the Mimmi SEMC product using MSM7x27.
 
@@ -175,6 +177,7 @@ config MACH_MSM7X27_SHAKIRA
         depends on !MSM_STACKED_MEMORY
         default n
         bool "MSM7x27 Shakira"
+	select ARCH_CMA_POSSIBLE
         help
           Support for the Shakira SEMC product using MSM7x27.
 

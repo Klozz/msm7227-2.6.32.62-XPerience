@@ -2138,6 +2138,12 @@ static void __init msm7x2x_map_io(void)
 #endif
 }
 
+
+static void __init xperience_reserve(void)
+{
+	cma_regions_allocate(NULL);
+}
+
 MACHINE_START(MSM7X27_SURF, "QCT MSM7x27 SURF")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io        = MSM_DEBUG_UART_PHYS,
@@ -2148,6 +2154,7 @@ MACHINE_START(MSM7X27_SURF, "QCT MSM7x27 SURF")
 	.init_irq	= msm7x2x_init_irq,
 	.init_machine	= msm7x2x_init,
 	.timer		= &msm_timer,
+	.reserve 	= xperience_reserve,
 MACHINE_END
 
 MACHINE_START(MSM7X27_FFA, "QCT MSM7x27 FFA")

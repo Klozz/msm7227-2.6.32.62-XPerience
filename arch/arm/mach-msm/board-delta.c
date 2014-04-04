@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/io.h>
+#include <linux/cma-int.h>
 #include <linux/delay.h>
 #include <linux/bootmem.h>
 
@@ -463,6 +464,7 @@ static int __init board_serialno_setup(char *serialno)
 }
 __setup("serialno=", board_serialno_setup);
 #endif
+
 
 #if defined(CONFIG_LEDS_MSM_PMIC_FLASHLED)
 static 	struct vreg *pvreg_boost;

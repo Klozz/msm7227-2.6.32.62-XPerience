@@ -57,3 +57,5 @@ obj-$(CONFIG_FPC_CONNECTOR_TEST) += fpc_connector_test.o
 
 obj-$(CONFIG_SEMC_ONESEG_TUNER_PM) += oneseg_tunerpm_driver.o
 obj-$(CONFIG_SEMC_GPIO_MATRIX_DRIVER) += semc/gpio_matrix/
+
+obj-$(CONFIG_CMA_DEVICE)	+= cma-dev.o

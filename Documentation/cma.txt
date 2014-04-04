@@ -1,0 +1,434 @@
+
+* Contiguous Memory Allocator
+
+   The Contiguous Memory Allocator (CMA) is a framework, which allows
+   setting up a machine-specific configuration for physically-contiguous
+   memory management. Memory for devices is then allocated according
+   to that configuration.
+
+   The main role of the framework is not to allocate memory, but to
+   parse and manage memory configurations, as well as to act as an
+   in-between between device drivers and pluggable allocators. It is
+   thus not tied to any memory allocation method or strategy.
+
+** Why is it needed?
+
+    Various devices on embedded systems have no scatter-getter and/or
+    IO map support and as such require contiguous blocks of memory to
+    operate.  They include devices such as cameras, hardware video
+    decoders and encoders, etc.
+
+    Such devices often require big memory buffers (a full HD frame is,
+    for instance, more then 2 mega pixels large, i.e. more than 6 MB
+    of memory), which makes mechanisms such as kmalloc() ineffective.
+
+    Some embedded devices impose additional requirements on the
+    buffers, e.g. they can operate only on buffers allocated in
+    particular location/memory bank (if system has more than one
+    memory bank) or buffers aligned to a particular memory boundary.
+
+    Development of embedded devices have seen a big rise recently
+    (especially in the V4L area) and many such drivers include their
+    own memory allocation code. Most of them use bootmem-based methods.
+    CMA framework is an attempt to unify contiguous memory allocation
+    mechanisms and provide a simple API for device drivers, while
+    staying as customisable and modular as possible.
+
+** Design
+
+    The main design goal for the CMA was to provide a customisable and
+    modular framework, which could be configured to suit the needs of
+    individual systems.  Configuration specifies a list of memory
+    regions, which then are assigned to devices.  Memory regions can
+    be shared among many device drivers or assigned exclusively to
+    one.  This has been achieved in the following ways:
+
+    1. The core of the CMA does not handle allocation of memory and
+       management of free space.  Dedicated allocators are used for
+       that purpose.
+
+       This way, if the provided solution does not match demands
+       imposed on a given system, one can develop a new algorithm and
+       easily plug it into the CMA framework.
+
+       The presented solution includes an implementation of a best-fit
+       algorithm.
+
+    2. CMA allows a run-time configuration of the memory regions it
+       will use to allocate chunks of memory from.  The set of memory
+       regions is given on command line so it can be easily changed
+       without the need for recompiling the kernel.
+
+       Each region has it's own size, alignment demand, a start
+       address (physical address where it should be placed) and an
+       allocator algorithm assigned to the region.
+
+       This means that there can be different algorithms running at
+       the same time, if different devices on the platform have
+       distinct memory usage characteristics and different algorithm
+       match those the best way.
+
+    3. When requesting memory, devices have to introduce themselves.
+       This way CMA knows who the memory is allocated for.  This
+       allows for the system architect to specify which memory regions
+       each device should use.
+
+       3a. Devices can also specify a "kind" of memory they want.
+           This makes it possible to configure the system in such
+           a way, that a single device may get memory from different
+           memory regions, depending on the "kind" of memory it
+           requested.  For example, a video codec driver might want to
+           allocate some shared buffers from the first memory bank and
+           the other from the second to get the highest possible
+           memory throughput.
+
+** Use cases
+
+    Lets analyse some imaginary system that uses the CMA to see how
+    the framework can be used and configured.
+
+
+    We have a platform with a hardware video decoder and a camera each
+    needing 20 MiB of memory in worst case.  Our system is written in
+    such a way though that the two devices are never used at the same
+    time and memory for them may be shared.  In such a system the
+    following two command line arguments would be used:
+
+        cma=r=20M cma_map=video,camera=r
+
+    The first instructs CMA to allocate a region of 20 MiB and use the
+    first available memory allocator on it.  The second, that drivers
+    named "video" and "camera" are to be granted memory from the
+    previously defined region.
+
+    We can see, that because the devices share the same region of
+    memory, we save 20 MiB of memory, compared to the situation when
+    each of the devices would reserve 20 MiB of memory for itself.
+
+
+    However, after some development of the system, it can now run
+    video decoder and camera at the same time.  The 20 MiB region is
+    no longer enough for the two to share.  A quick fix can be made to
+    grant each of those devices separate regions:
+
+        cma=v=20M,c=20M cma_map=video=v;camera=c
+
+    This solution also shows how with CMA you can assign private pools
+    of memory to each device if that is required.
+
+    Allocation mechanisms can be replaced dynamically in a similar
+    manner as well. Let's say that during testing, it has been
+    discovered that, for a given shared region of 40 MiB,
+    fragmentation has become a problem.  It has been observed that,
+    after some time, it becomes impossible to allocate buffers of the
+    required sizes. So to satisfy our requirements, we would have to
+    reserve a larger shared region beforehand.
+
+    But fortunately, you have also managed to develop a new allocation
+    algorithm -- Neat Allocation Algorithm or "na" for short -- which
+    satisfies the needs for both devices even on a 30 MiB region.  The
+    configuration can be then quickly changed to:
+
+        cma=r=30M:na cma_map=video,camera=r
+
+    This shows how you can develop your own allocation algorithms if
+    the ones provided with CMA do not suit your needs and easily
+    replace them, without the need to modify CMA core or even
+    recompiling the kernel.
+
+** Technical Details
+
+*** The command line parameters
+
+    As shown above, CMA is configured from command line via two
+    arguments: "cma" and "cma_map".  The first one specifies regions
+    that are to be reserved for CMA.  The second one specifies what
+    regions each device is assigned to.
+
+    The format of the "cma" parameter is as follows:
+
+        cma          ::=  "cma=" regions [ ';' ]
+        regions      ::= region [ ';' regions ]
+
+        region       ::= reg-name
+                           '=' size
+                         [ ' <at> ' start ]
+                         [ '/' alignment ]
+                         [ ':' [ alloc-name ] [ '(' alloc-params ')' ] ]
+
+        reg-name     ::= a sequence of letters and digits
+                                   // name of the region
+
+        size         ::= memsize   // size of the region
+        start        ::= memsize   // desired start address of
+                                   // the region
+        alignment    ::= memsize   // alignment of the start
+                                   // address of the region
+
+        alloc-name   ::= a non-empty sequence of letters and digits
+                     // name of an allocator that will be used
+                     // with the region
+        alloc-params ::= a sequence of chars other then ')' and ';'
+                     // optional parameters for the allocator
+
+        memsize      ::= whatever memparse() accepts
+
+    The format of the "cma_map" parameter is as follows:
+
+        cma-map      ::=  "cma_map=" rules [ ';' ]
+        rules        ::= rule [ ';' rules ]
+        rule         ::= patterns '=' regions
+        patterns     ::= pattern [ ',' patterns ]
+
+        regions      ::= reg-name [ ',' regions ]
+                     // list of regions to try to allocate memory
+                     // from for devices that match pattern
+
+        pattern      ::= dev-pattern [ '/' kind-pattern ]
+                       | '/' kind-pattern
+                     // pattern request must match for this rule to
+                     // apply to it; the first rule that matches is
+                     // applied; if dev-pattern part is omitted
+                     // value identical to the one used in previous
+                     // pattern is assumed
+
+        dev-pattern  ::= pattern-str
+                     // pattern that device name must match for the
+                     // rule to apply.
+        kind-pattern ::= pattern-str
+                     // pattern that "kind" of memory (provided by
+                     // device) must match for the rule to apply.
+
+        pattern-str  ::= a non-empty sequence of characters with '?'
+                         meaning any character and possible '*' at
+                         the end meaning to match the rest of the
+                         string
+
+    Some examples (whitespace added for better readability):
+
+        cma = r1 = 64M       // 64M region
+                    <at> 512M       // starting at address 512M
+                               // (or at least as near as possible)
+                   /1M         // make sure it's aligned to 1M
+                   :foo(bar);  // uses allocator "foo" with "bar"
+                               // as parameters for it
+              r2 = 64M       // 64M region
+                   /1M;        // make sure it's aligned to 1M
+                               // uses the first available allocator
+              r3 = 64M       // 64M region
+                    <at> 512M       // starting at address 512M
+                   :foo;       // uses allocator "foo" with no parameters
+
+        cma_map = foo = r1;
+                      // device foo with kind==NULL uses region r1
+
+                  foo/quaz = r2;  // OR:
+                  /quaz = r2;
+                      // device foo with kind == "quaz" uses region r2
+
+                  foo/* = r3;     // OR:
+                  /* = r3;
+                      // device foo with any other kind uses region r3
+
+                  bar/* = r1,r2;
+                      // device bar with any kind uses region r1 or r2
+
+                  baz?/a* , baz?/b* = r3;
+                      // devices named baz? where ? is any character
+                      // with kind being a string starting with "a" or
+                      // "b" use r3
+
+
+*** The device and kind of memory
+
+    The name of the device is taken form the device structure.  It is
+    not possible to use CMA if driver does not register a device
+    (actually this can be overcome if a fake device structure is
+    provided with at least the name set).
+
+    The kind of memory is an optional argument provided by the device
+    whenever it requests memory chunk.  In many cases this can be
+    ignored but sometimes it may be required for some devices.
+
+    For instance, let say that there are two memory banks and for
+    performance reasons a device uses buffers in both of them.  In
+    such case, the device driver would define two kinds and use it for
+    different buffers.  Command line arguments could look as follows:
+
+            cma=a=32M <at> 0,b=32M <at> 512M cma_map=foo/a=a;foo/b=b
+
+    And whenever the driver allocated the memory it would specify the
+    kind of memory:
+
+            buffer1 = cma_alloc(dev, 1 << 20, 0, "a");
+            buffer2 = cma_alloc(dev, 1 << 20, 0, "b");
+
+    If it was needed to try to allocate from the other bank as well if
+    the dedicated one is full command line arguments could be changed
+    to:
+
+            cma=a=32M <at> 0,b=32M <at> 512M cma_map=foo/a=a,b;foo/b=b,a
+
+    On the other hand, if the same driver was used on a system with
+    only one bank, the command line could be changed to:
+
+            cma=r=64M cma_map=foo/*=r
+
+    without the need to change the driver at all.
+
+*** API
+
+    There are four calls provided by the CMA framework to devices.  To
+    allocate a chunk of memory cma_alloc() function needs to be used:
+
+            unsigned long cma_alloc(const struct device *dev,
+                                    const char *kind,
+                                    unsigned long size,
+                                    unsigned long alignment);
+
+    If required, device may specify alignment that the chunk need to
+    satisfy.  It have to be a power of two or zero.  The chunks are
+    always aligned at least to a page.
+
+    The kind specifies the kind of memory as described to in the
+    previous subsection.  If device driver does not use notion of
+    memory kinds it's safe to pass NULL as the kind.
+
+    The basic usage of the function is just a:
+
+            addr = cma_alloc(dev, NULL, size, 0);
+
+    The function returns physical address of allocated chunk or
+    a value that evaluated true if checked with IS_ERR_VALUE(), so the
+    correct way for checking for errors is:
+
+            unsigned long addr = cma_alloc(dev, size);
+            if (IS_ERR_VALUE(addr))
+                    return (int)addr;
+            /* Allocated */
+
+    (Make sure to include <linux/err.h> which contains the definition
+    of the IS_ERR_VALUE() macro.)
+
+
+    Allocated chunk is freed via a cma_put() function:
+
+            int cma_put(unsigned long addr);
+
+    It takes physical address of the chunk as an argument and
+    decreases it's reference counter.  If the counter reaches zero the
+    chunk is freed.  Most of the time users do not need to think about
+    reference counter and simply use the cma_put() as a free call.
+
+    If one, however, were to share a chunk with others built in
+    reference counter may turn out to be handy.  To increment it, one
+    needs to use cma_get() function:
+
+            int cma_put(unsigned long addr);
+
+
+    The last function is the cma_info() which returns information
+    about regions assigned to given (dev, kind) pair.  Its syntax is:
+
+            int cma_info(struct cma_info *info,
+                         const struct device *dev,
+                         const char *kind);
+
+    On successful exit it fills the info structure with lower and
+    upper bound of regions, total size and number of regions assigned
+    to given (dev, kind) pair.
+
+*** Allocator operations
+
+    Creating an allocator for CMA needs four functions to be
+    implemented.
+
+
+    The first two are used to initialise an allocator far given driver
+    and clean up afterwards:
+
+            int  cma_foo_init(struct cma_region *reg);
+            void cma_foo_done(struct cma_region *reg);
+
+    The first is called during platform initialisation.  The
+    cma_region structure has saved starting address of the region as
+    well as its size.  It has also alloc_params field with optional
+    parameters passed via command line (allocator is free to interpret
+    those in any way it pleases).  Any data that allocate associated
+    with the region can be saved in private_data field.
+
+    The second call cleans up and frees all resources the allocator
+    has allocated for the region.  The function can assume that all
+    chunks allocated form this region have been freed thus the whole
+    region is free.
+
+
+    The two other calls are used for allocating and freeing chunks.
+    They are:
+
+            struct cma_chunk *cma_foo_alloc(struct cma_region *reg,
+                                            unsigned long size,
+                                            unsigned long alignment);
+            void cma_foo_free(struct cma_chunk *chunk);
+
+    As names imply the first allocates a chunk and the other frees
+    a chunk of memory.  It also manages a cma_chunk object
+    representing the chunk in physical memory.
+
+    Either of those function can assume that they are the only thread
+    accessing the region.  Therefore, allocator does not need to worry
+    about concurrency.
+
+
+    When allocator is ready, all that is left is register it by adding
+    a line to "mm/cma-allocators.h" file:
+
+            CMA_ALLOCATOR("foo", foo)
+
+    The first "foo" is a named that will be available to use with
+    command line argument.  The second is the part used in function
+    names.
+
+*** Integration with platform
+
+    There is one function that needs to be called form platform
+    initialisation code.  That is the cma_regions_allocate() function:
+
+            void cma_regions_allocate(int (*alloc)(struct cma_region *reg));
+
+    It traverses list of all of the regions given on command line and
+    reserves memory for them.  The only argument is a callback
+    function used to reserve the region.  Passing NULL as the argument
+    makes the function use cma_region_alloc() function which uses
+    bootmem for allocating.
+
+    Alternatively, platform code could traverse the cma_regions array
+    by itself but this should not be necessary.
+
+    The If cma_region_alloc() allocator is used, the
+    cma_regions_allocate() function needs to be allocated when bootmem
+    is active.
+
+
+    Platform has also a way of providing default cma and cma_map
+    parameters.  cma_defaults() function is used for that purpose:
+
+            int cma_defaults(const char *cma, const char *cma_map)
+
+    It needs to be called after early params have been parsed but
+    prior to allocating regions.  Arguments of this function are used
+    only if they are not-NULL and respective command line argument was
+    not provided.
+
+** Future work
+
+    In the future, implementation of mechanisms that would allow the
+    free space inside the regions to be used as page cache, filesystem
+    buffers or swap devices is planned.  With such mechanisms, the
+    memory would not be wasted when not used.
+
+    Because all allocations and freeing of chunks pass the CMA
+    framework it can follow what parts of the reserved memory are
+    freed and what parts are allocated.  Tracking the unused memory
+    would let CMA use it for other purposes such as page cache, I/O
+    buffers, swap, etc.

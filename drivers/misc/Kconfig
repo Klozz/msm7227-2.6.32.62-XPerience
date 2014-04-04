@@ -431,4 +431,12 @@ source "drivers/misc/semc/simcdetect/Kconfig"
 source "drivers/misc/semc/vibrator/Kconfig"
 source "drivers/misc/semc/gpio_matrix/Kconfig"
 
+config CMA_DEVICE
+	tristate "CMA misc device (DEVELOPEMENT)"
+	depends on CMA
+	help
+	  The CMA misc device allows allocating contiguous memory areas
+	  from user space.  This is mostly for testing of the CMA
+	  framework.
+
 endif # MISC_DEVICES
