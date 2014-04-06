@@ -45,6 +45,9 @@
 #define SDIO_DEVICE_ID_TI_WL1271	0x4076
 #endif
 
+static bool irqenflag = false;
+
+
 static const struct sdio_device_id wl1271_devices[] __devinitconst = {
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_TI, SDIO_DEVICE_ID_TI_WL1271) },
 	{}
@@ -74,6 +77,8 @@ static irqreturn_t wl1271_hardirq(int irq, void *cookie)
 	unsigned long flags;
 
 	wl1271_debug(DEBUG_IRQ, "IRQ");
+	if (irqenflag == false)
+		return IRQ_HANDLED;
 
 	/* complete the ELP completion */
 	spin_lock_irqsave(&wl->wl_lock, flags);
@@ -203,7 +208,8 @@ static void wl1271_sdio_raw_write(struct wl1271 *wl, int addr, void *buf,
 static int wl1271_sdio_power_on(struct wl1271 *wl)
 {
 	struct sdio_func *func = wl_to_func(wl);
-	int ret;
+	int ret = 0;
+#if 0
 
 	/* If enabled, tell runtime PM not to power off the card */
 	if (pm_runtime_enabled(&func->dev)) {
@@ -216,23 +222,24 @@ static int wl1271_sdio_power_on(struct wl1271 *wl)
 		if (ret < 0)
 			goto out;
 	}
-
+#endif
 	sdio_claim_host(func);
 	sdio_enable_func(func);
 
-out:
+//out:
 	return ret;
 }
 
 static int wl1271_sdio_power_off(struct wl1271 *wl)
 {
 	struct sdio_func *func = wl_to_func(wl);
-	int ret;
+	int ret = 0;
 
 	sdio_disable_func(func);
 	sdio_release_host(func);
 
 	/* Power off the card manually, even if runtime PM is enabled. */
+#if 0
 	ret = mmc_power_save_host(func->card->host);
 	if (ret < 0)
 		return ret;
@@ -240,7 +247,7 @@ static int wl1271_sdio_power_off(struct wl1271 *wl)
 	/* If enabled, let runtime PM know the card is powered off */
 	if (pm_runtime_enabled(&func->dev))
 		ret = pm_runtime_put_sync(&func->dev);
-
+#endif
 	return ret;
 }
 
@@ -304,12 +311,15 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 		wl->ref_clock = wlan_data->board_ref_clock;
 	if (wl->tcxo_clock < 0)
 		wl->tcxo_clock = wlan_data->board_tcxo_clock;
+	wl ->set_power = wlan_data->set_power;
 	wl->platform_quirks = wlan_data->platform_quirks;
 
 	if (wl->platform_quirks & WL12XX_PLATFORM_QUIRK_EDGE_IRQ)
 		irqflags = IRQF_TRIGGER_RISING;
 	else
 		irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
+
+	set_irq_type(wl->irq,IRQ_TYPE_EDGE_RISING);
 
 	ret = request_threaded_irq(wl->irq, wl1271_hardirq, wl1271_irq,
 				   irqflags,
@@ -323,6 +333,7 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 
 	sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
 
+	irqenflag = true;
 	ret = wl1271_init_ieee80211(wl);
 	if (ret)
 		goto out_irq;
@@ -334,7 +345,7 @@ static int __devinit wl1271_probe(struct sdio_func *func,
 	sdio_set_drvdata(func, wl);
 
 	/* Tell PM core that we don't need the card to be powered now */
-	pm_runtime_put_noidle(&func->dev);
+//	pm_runtime_put_noidle(&func->dev);
 	mmc_power_save_host(func->card->host);
 
 	return 0;

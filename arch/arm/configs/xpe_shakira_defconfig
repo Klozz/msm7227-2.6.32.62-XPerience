@@ -1,12 +1,8 @@
 #
 # Automatically generated make config: don't edit
-<<<<<<< HEAD
-# Linux kernel version: 2.6.32.62-XPerience-02
-# Thu Apr  3 19:22:23 2014
-=======
 # Linux kernel version: 2.6.32.62-XPerience-04
 # Fri Apr  4 15:38:03 2014
->>>>>>> 0e8275c039b19dc3202ab71a9bbe3446b8daced5
+
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
