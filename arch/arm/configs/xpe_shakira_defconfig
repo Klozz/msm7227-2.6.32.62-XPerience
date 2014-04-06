@@ -1,12 +1,7 @@
 #
 # Automatically generated make config: don't edit
-<<<<<<< HEAD
-# Linux kernel version: 2.6.32.62-XPerience-02
-# Thu Apr  3 19:22:23 2014
-=======
 # Linux kernel version: 2.6.32.62-XPerience-04
-# Fri Apr  4 15:38:03 2014
->>>>>>> 0e8275c039b19dc3202ab71a9bbe3446b8daced5
+# Sat Apr  5 19:18:06 2014
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -59,7 +54,12 @@ CONFIG_SYSVIPC_SYSCTL=y
 #
 # CONFIG_TREE_RCU is not set
 # CONFIG_TREE_PREEMPT_RCU is not set
-CONFIG_TINY_RCU=y
+CONFIG_JRCU=y
+# CONFIG_TINY_RCU is not set
+CONFIG_JRCU_DAEMON=y
+CONFIG_JRCU_DAEMON_PRIO=0
+CONFIG_JRCU_LAZY=y
+CONFIG_PREEMPT_COUNT_CPU=y
 # CONFIG_TREE_RCU_TRACE is not set
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
