@@ -94,7 +94,7 @@ kobject_put(logger_mode_kobj);
 
 // initialize logger mode to 0 (disabled) as default
 //logger_mode = 1; are enabled :D
-logger_mode = 0;
+logger_mode = 1;
 
         return (logger_mode_retval);
 }
